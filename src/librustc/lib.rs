@@ -103,6 +103,9 @@ extern crate rustc_apfloat;
 extern crate byteorder;
 extern crate backtrace;
 
+#[macro_use]
+extern crate rs_tracing;
+
 // Note that librustc doesn't actually depend on these crates, see the note in
 // `Cargo.toml` for this crate about why these are here.
 #[allow(unused_extern_crates)]

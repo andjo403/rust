@@ -20,3 +20,4 @@ rustc_platform_intrinsics = { path = "../librustc_platform_intrinsics" }
 rustc_target = { path = "../librustc_target" }
 syntax_pos = { path = "../libsyntax_pos" }
 rustc_errors = { path = "../librustc_errors" }
+rs_tracing = { git = "https://github.com/andjo403/rs_tracing" , branch = "file", features=["rs_tracing"]}

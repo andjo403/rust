@@ -19,7 +19,6 @@ use llvm;
 use rustc::hir::def_id::LOCAL_CRATE;
 use rustc::middle::exported_symbols::SymbolExportLevel;
 use rustc::session::config::{self, Lto};
-use rustc::util::common::time_ext;
 use time_graph::Timeline;
 use {ModuleCodegen, ModuleLlvm, ModuleKind, ModuleSource};
 
@@ -172,12 +171,12 @@ pub(crate) fn run(cgcx: &CodegenContext,
                 info!("adding bytecode {}", name);
                 let bc_encoded = data.data();
 
-                let (bc, id) = time_ext(cgcx.time_passes, None, &format!("decode {}", name), || {
+                let (bc, id) = trace_expr!("decode", {
                     match DecodedBytecode::new(bc_encoded) {
                         Ok(b) => Ok((b.bytecode(), b.identifier().to_string())),
                         Err(e) => Err(diag_handler.fatal(&e)),
-                    }
-                })?;
+                    }?
+                },"name":&format!("{}", name));
                 let bc = SerializedModule::FromRlib(bc);
                 upstream_modules.push((bc, CString::new(id).unwrap()));
             }
@@ -253,13 +252,13 @@ fn fat_lto(cgcx: &CodegenContext,
     let mut linker = Linker::new(llmod);
     for (bc_decoded, name) in serialized_modules {
         info!("linking {:?}", name);
-        time_ext(cgcx.time_passes, None, &format!("ll link {:?}", name), || {
+        trace_expr!("ll link", {
             let data = bc_decoded.data();
             linker.add(&data).map_err(|()| {
                 let msg = format!("failed to load bc of {:?}", name);
                 write::llvm_err(&diag_handler, msg)
-            })
-        })?;
+            })?
+        },"name":&format!("{:?}", name));
         timeline.record(&format!("link {:?}", name));
         serialized_bitcode.push(bc_decoded);
     }
@@ -447,7 +446,7 @@ fn thin_lto(diag_handler: &Handler,
     }
 }
 
-fn run_pass_manager(cgcx: &CodegenContext,
+fn run_pass_manager(_cgcx: &CodegenContext,
                     tm: TargetMachineRef,
                     llmod: ModuleRef,
                     config: &ModuleConfig,
@@ -498,7 +497,7 @@ fn run_pass_manager(cgcx: &CodegenContext,
         assert!(!pass.is_null());
         llvm::LLVMRustAddPass(pm, pass);
 
-        time_ext(cgcx.time_passes, None, "LTO passes", ||
+        trace_expr!("LTO passes",
              llvm::LLVMRunPassManager(pm, llmod));
 
         llvm::LLVMDisposePassManager(pm);

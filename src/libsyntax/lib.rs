@@ -40,6 +40,9 @@ extern crate rustc_target;
 
 extern crate serialize as rustc_serialize; // used by deriving
 
+#[macro_use] 
+extern crate rs_tracing;
+
 use rustc_data_structures::sync::Lock;
 
 // A variant of 'try!' that panics on an Err. This is used as a crutch on the

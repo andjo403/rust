@@ -17,3 +17,4 @@ syntax_pos = { path = "../libsyntax_pos" }
 rustc_errors = { path = "../librustc_errors" }
 rustc_data_structures = { path = "../librustc_data_structures" }
 rustc_target = { path = "../librustc_target" }
+rs_tracing = { git = "https://github.com/andjo403/rs_tracing" , branch = "file", features=["rs_tracing"]} 

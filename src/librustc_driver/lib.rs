@@ -61,6 +61,8 @@ extern crate log;
 extern crate syntax;
 extern crate syntax_ext;
 extern crate syntax_pos;
+#[macro_use]
+extern crate rs_tracing;
 
 use driver::CompileController;
 use pretty::{PpMode, UserIdentifiedItem};
@@ -82,7 +84,7 @@ use rustc::middle::cstore::CrateStore;
 use rustc_metadata::locator;
 use rustc_metadata::cstore::CStore;
 use rustc_metadata::dynamic_lib::DynamicLibrary;
-use rustc::util::common::{time, ErrorReported};
+use rustc::util::common::ErrorReported;
 use rustc_codegen_utils::codegen_backend::CodegenBackend;
 
 use serialize::json::ToJson;
@@ -516,6 +518,13 @@ fn run_compiler_with_pool<'a>(
         sopts, input_file_path.clone(), descriptions, codemap, emitter_dest,
     );
 
+    if sess.time_passes() {
+        open_trace_file!("C:\\Users\\andjo\\RustProj\\tracelog");
+        trace_activate!();
+    }else {
+        trace_deactivate!();
+    }
+
     if let Some(err) = input_err {
         // Immediately stop compilation if there was an issue reading
         // the input (for example if the input stream is not UTF-8).
@@ -558,6 +567,8 @@ fn run_compiler_with_pool<'a>(
                               Some(plugins),
                               &control)
     };
+
+    close_trace_file!();
 
     (result, Some(sess))
 }
@@ -959,7 +970,7 @@ impl<'a> CompilerCalls<'a> for RustcDefaultCalls {
 pub fn enable_save_analysis(control: &mut CompileController) {
     control.keep_ast = true;
     control.after_analysis.callback = box |state| {
-        time(state.session, "save analysis", || {
+        trace_expr!( "save analysis", {
             save::process_crate(state.tcx.unwrap(),
                                 state.expanded_crate.unwrap(),
                                 state.analysis.unwrap(),

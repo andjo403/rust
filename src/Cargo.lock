@@ -1764,6 +1764,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rs_tracing"
+version = "0.1.0"
+source = "git+https://github.com/andjo403/rs_tracing?branch=file#37201acbbcb5f21b47e662b6679e63583172f564"
+dependencies = [
+ "serde 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.1.39 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "rustbook"
 version = "0.1.0"
 dependencies = [
@@ -1788,6 +1798,7 @@ dependencies = [
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "polonius-engine 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc_macro 0.0.0",
+ "rs_tracing 0.1.0 (git+https://github.com/andjo403/rs_tracing?branch=file)",
  "rustc_apfloat 0.0.0",
  "rustc_data_structures 0.0.0",
  "rustc_errors 0.0.0",
@@ -1992,6 +2003,7 @@ dependencies = [
  "libc 0.2.40 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "num_cpus 1.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rs_tracing 0.1.0 (git+https://github.com/andjo403/rs_tracing?branch=file)",
  "rustc 0.0.0",
  "rustc-demangle 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc_allocator 0.0.0",
@@ -2060,6 +2072,7 @@ dependencies = [
  "env_logger 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "graphviz 0.0.0",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rs_tracing 0.1.0 (git+https://github.com/andjo403/rs_tracing?branch=file)",
  "rustc 0.0.0",
  "rustc-rayon 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc_allocator 0.0.0",
@@ -2105,6 +2118,7 @@ dependencies = [
  "graphviz 0.0.0",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rs_tracing 0.1.0 (git+https://github.com/andjo403/rs_tracing?branch=file)",
  "rustc 0.0.0",
  "rustc_data_structures 0.0.0",
  "serialize 0.0.0",
@@ -2176,6 +2190,7 @@ dependencies = [
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "log_settings 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "polonius-engine 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rs_tracing 0.1.0 (git+https://github.com/andjo403/rs_tracing?branch=file)",
  "rustc 0.0.0",
  "rustc_apfloat 0.0.0",
  "rustc_data_structures 0.0.0",
@@ -2309,6 +2324,7 @@ dependencies = [
  "arena 0.0.0",
  "fmt_macros 0.0.0",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rs_tracing 0.1.0 (git+https://github.com/andjo403/rs_tracing?branch=file)",
  "rustc 0.0.0",
  "rustc_data_structures 0.0.0",
  "rustc_errors 0.0.0",
@@ -2632,6 +2648,7 @@ version = "0.0.0"
 dependencies = [
  "bitflags 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rs_tracing 0.1.0 (git+https://github.com/andjo403/rs_tracing?branch=file)",
  "rustc_data_structures 0.0.0",
  "rustc_errors 0.0.0",
  "rustc_target 0.0.0",
@@ -3205,6 +3222,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum rls-rustc 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8ed5342b2bbbe8663c04600af506c8902b6b4d3e627b006eb1bd65aa14805f4d"
 "checksum rls-span 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5d7c7046dc6a92f2ae02ed302746db4382e75131b9ce20ce967259f6b5867a6a"
 "checksum rls-vfs 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)" = "be231e1e559c315bc60ced5ad2cc2d7a9c208ed7d4e2c126500149836fda19bb"
+"checksum rs_tracing 0.1.0 (git+https://github.com/andjo403/rs_tracing?branch=file)" = "<none>"
 "checksum rustc-ap-arena 147.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1304956fbbdd070e4478672d040f0453374604a12a0938aaba4b38a2bd124667"
 "checksum rustc-ap-rustc_cratesio_shim 147.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6d1dcd0fafa3c7875b76e33feaf69b332870180475ba3eb8dd003bcc2a2dc069"
 "checksum rustc-ap-rustc_data_structures 147.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "76c1a3fe4a0104b922ffc8080bd7c703dc20f2874b7c982638f6adb6c378b77a"

@@ -15,7 +15,6 @@ use rustc::dep_graph::{PreviousDepGraph, SerializedDepGraph, WorkProduct, WorkPr
 use rustc::session::Session;
 use rustc::ty::TyCtxt;
 use rustc::ty::maps::OnDiskCache;
-use rustc::util::common::time_ext;
 use rustc_serialize::Decodable as RustcDecodable;
 use rustc_serialize::opaque::Decoder;
 use std::path::Path;
@@ -112,8 +111,6 @@ pub fn load_dep_graph(sess: &Session) ->
     // Since `sess` isn't `Sync`, we perform all accesses to `sess`
     // before we fire the background thread.
 
-    let time_passes = sess.time_passes();
-
     if sess.opts.incremental.is_none() {
         // No incremental compilation.
         return MaybeAsync::Sync(LoadResult::Ok {
@@ -172,7 +169,7 @@ pub fn load_dep_graph(sess: &Session) ->
     }
 
     MaybeAsync::Async(std::thread::spawn(move || {
-        time_ext(time_passes, None, "background load prev dep-graph", move || {
+        trace_expr!( "background load prev dep-graph", {
             match load_data(report_incremental_info, &path) {
                 LoadResult::DataOutOfDate => LoadResult::DataOutOfDate,
                 LoadResult::Error { message } => LoadResult::Error { message },

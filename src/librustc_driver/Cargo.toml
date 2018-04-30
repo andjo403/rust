@@ -37,5 +37,6 @@ serialize = { path = "../libserialize" }
 syntax = { path = "../libsyntax" }
 syntax_ext = { path = "../libsyntax_ext" }
 syntax_pos = { path = "../libsyntax_pos" }
+rs_tracing = { git = "https://github.com/andjo403/rs_tracing" , branch = "file", features=["rs_tracing"]}
 
 ar = "0.3.0"

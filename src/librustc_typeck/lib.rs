@@ -93,6 +93,8 @@ extern crate rustc_platform_intrinsics as intrinsics;
 extern crate rustc_data_structures;
 extern crate rustc_errors as errors;
 extern crate rustc_target;
+#[macro_use]
+extern crate rs_tracing;
 
 use rustc::hir;
 use rustc::lint;
@@ -107,7 +109,6 @@ use rustc::ty::{self, Ty, TyCtxt};
 use rustc::ty::maps::Providers;
 use rustc::traits::{ObligationCause, ObligationCauseCode, TraitEngine};
 use session::{CompileIncomplete, config};
-use util::common::time;
 
 use syntax::ast;
 use rustc_target::spec::abi::Abi;
@@ -341,36 +342,36 @@ pub fn check_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>)
     // this ensures that later parts of type checking can assume that items
     // have valid types and not error
     tcx.sess.track_errors(|| {
-        time(tcx.sess, "type collecting", ||
+        trace_expr!( "type collecting",
              collect::collect_item_types(tcx));
 
     })?;
 
     tcx.sess.track_errors(|| {
-        time(tcx.sess, "outlives testing", ||
+        trace_expr!( "outlives testing",
             outlives::test::test_inferred_outlives(tcx));
     })?;
 
     tcx.sess.track_errors(|| {
-        time(tcx.sess, "impl wf inference", ||
+        trace_expr!( "impl wf inference",
              impl_wf_check::impl_wf_check(tcx));
     })?;
 
     tcx.sess.track_errors(|| {
-      time(tcx.sess, "coherence checking", ||
+      trace_expr!( "coherence checking",
           coherence::check_coherence(tcx));
     })?;
 
     tcx.sess.track_errors(|| {
-        time(tcx.sess, "variance testing", ||
+        trace_expr!( "variance testing",
              variance::test::test_variance(tcx));
     })?;
 
-    time(tcx.sess, "wf checking", || check::check_wf_new(tcx))?;
+    trace_expr!( "wf checking", check::check_wf_new(tcx))?;
 
-    time(tcx.sess, "item-types checking", || check::check_item_types(tcx))?;
+    trace_expr!( "item-types checking", check::check_item_types(tcx))?;
 
-    time(tcx.sess, "item-bodies checking", || check::check_item_bodies(tcx))?;
+    trace_expr!( "item-bodies checking", check::check_item_bodies(tcx))?;
 
     check_unused::check_crate(tcx);
     check_for_entry_fn(tcx);

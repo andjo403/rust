@@ -230,6 +230,7 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
     }
 
     pub fn expand_crate(&mut self, mut krate: ast::Crate) -> ast::Crate {
+        trace_scoped!( "expand_crate");
         let mut module = ModuleData {
             mod_path: vec![Ident::from_str(&self.cx.ecfg.crate_name)],
             directory: match self.cx.codemap().span_to_unmapped_path(krate.span) {
@@ -275,6 +276,7 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
 
     // Fully expand all the invocations in `expansion`.
     fn expand(&mut self, expansion: Expansion) -> Expansion {
+        trace_scoped!( "fully_expand");
         let orig_expansion_data = self.cx.current_expansion.clone();
         self.cx.current_expansion.depth = 0;
 
@@ -286,6 +288,7 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
         let mut derives = HashMap::new();
         let mut undetermined_invocations = Vec::new();
         let (mut progress, mut force) = (false, !self.monotonic);
+        trace_scoped!( "expand loop");
         loop {
             let mut invoc = if let Some(invoc) = invocations.pop() {
                 invoc
@@ -408,6 +411,7 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
 
     fn collect_invocations(&mut self, expansion: Expansion, derives: &[Mark])
                            -> (Expansion, Vec<Invocation>) {
+        trace_scoped!( "collect_invocations");
         let result = {
             let mut collector = InvocationCollector {
                 cfg: StripUnconfigured {

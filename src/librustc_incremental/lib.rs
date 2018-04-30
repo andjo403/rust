@@ -26,6 +26,8 @@ extern crate rand;
 #[macro_use] extern crate log;
 extern crate syntax;
 extern crate syntax_pos;
+#[macro_use]
+extern crate rs_tracing;
 
 mod assert_dep_graph;
 pub mod assert_module_sources;

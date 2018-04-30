@@ -25,7 +25,6 @@ use rustc::session::Session;
 use rustc::middle::cstore::{NativeLibrary, LibSource, NativeLibraryKind};
 use rustc::middle::dependency_format::Linkage;
 use {CodegenResults, CrateInfo};
-use rustc::util::common::time;
 use rustc::util::fs::fix_windows_verbatim_for_gcc;
 use rustc::hir::def_id::CrateNum;
 use tempdir::TempDir;
@@ -712,9 +711,9 @@ fn link_natively(sess: &Session,
     let mut i = 0;
     loop {
         i += 1;
-        prog = time(sess, "running linker", || {
+        prog = trace_expr!( "running linker",
             exec_linker(sess, &mut cmd, out_filename, tmpdir)
-        });
+        );
         let output = match prog {
             Ok(ref output) => output,
             Err(_) => break,
@@ -1447,7 +1446,7 @@ fn add_upstream_rust_crates(cmd: &mut Linker,
         let name = cratepath.file_name().unwrap().to_str().unwrap();
         let name = &name[3..name.len() - 5]; // chop off lib/.rlib
 
-        time(sess, &format!("altering {}.rlib", name), || {
+        trace_expr!( "altering", {
             let cfg = archive_config(sess, &dst, Some(cratepath));
             let mut archive = ArchiveBuilder::new(cfg);
             archive.update_symbols();
@@ -1519,7 +1518,7 @@ fn add_upstream_rust_crates(cmd: &mut Linker,
             } else {
                 cmd.link_rlib(&fix_windows_verbatim_for_gcc(&dst));
             }
-        });
+        },"name":&format!("{}.rlib", name));
     }
 
     // Same thing as above, but for dynamic crates instead of static crates.

@@ -57,6 +57,8 @@ extern crate rustc_errors as errors;
 extern crate serialize;
 extern crate cc; // Used to locate MSVC
 extern crate tempdir;
+#[macro_use]
+extern crate rs_tracing;
 
 use back::bytecode::RLIB_BYTECODE_EXTENSION;
 
@@ -211,7 +213,6 @@ impl CodegenBackend for LlvmCodegenBackend {
         dep_graph: &DepGraph,
         outputs: &OutputFilenames,
     ) -> Result<(), CompileIncomplete>{
-        use rustc::util::common::time;
         let (ongoing_codegen, work_products) =
             ongoing_codegen.downcast::<::back::write::OngoingCodegen>()
                 .expect("Expected LlvmCodegenBackend's OngoingCodegen, found Box<Any>")
@@ -220,9 +221,8 @@ impl CodegenBackend for LlvmCodegenBackend {
             back::write::dump_incremental_data(&ongoing_codegen);
         }
 
-        time(sess,
-             "serialize work products",
-             move || rustc_incremental::save_work_product_index(sess, &dep_graph, work_products));
+        trace_expr!( "serialize work products",
+             rustc_incremental::save_work_product_index(sess, &dep_graph, work_products));
 
         sess.compile_status()?;
 
@@ -233,7 +233,7 @@ impl CodegenBackend for LlvmCodegenBackend {
 
         // Run the linker on any artifacts that resulted from the LLVM run.
         // This should produce either a finished executable or library.
-        time(sess, "linking", || {
+        trace_expr!( "linking", {
             back::link::link_binary(sess, &ongoing_codegen,
                                     outputs, &ongoing_codegen.crate_name.as_str());
         });

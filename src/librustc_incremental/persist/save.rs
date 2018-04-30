@@ -11,7 +11,6 @@
 use rustc::dep_graph::{DepGraph, DepKind, WorkProduct, WorkProductId};
 use rustc::session::Session;
 use rustc::ty::TyCtxt;
-use rustc::util::common::time;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_serialize::Encodable as RustcEncodable;
 use rustc_serialize::opaque::Encoder;
@@ -33,18 +32,18 @@ pub fn save_dep_graph<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
             return;
         }
 
-        time(sess, "persist query result cache", || {
+        trace_expr!("persist query result cache", {
             save_in(sess,
                     query_cache_path(sess),
                     |e| encode_query_cache(tcx, e));
         });
 
         if tcx.sess.opts.debugging_opts.incremental_queries {
-            time(sess, "persist dep-graph", || {
+            trace_expr!("persist dep-graph", {
                 save_in(sess,
                         dep_graph_path(sess),
                         |e| {
-                            time(sess, "encode dep-graph", || {
+                            trace_expr!("encode dep-graph", {
                                 encode_dep_graph(tcx, e)
                             })
                         });
@@ -149,7 +148,7 @@ fn encode_dep_graph(tcx: TyCtxt,
     tcx.sess.opts.dep_tracking_hash().encode(encoder)?;
 
     // Encode the graph data.
-    let serialized_graph = time(tcx.sess, "getting serialized graph", || {
+    let serialized_graph = trace_expr!("getting serialized graph", {
         tcx.dep_graph.serialize()
     });
 
@@ -227,7 +226,7 @@ fn encode_dep_graph(tcx: TyCtxt,
         println!("[incremental]");
     }
 
-    time(tcx.sess, "encoding serialized graph", || {
+    trace_expr!( "encoding serialized graph", {
         serialized_graph.encode(encoder)
     })?;
 
@@ -252,7 +251,7 @@ fn encode_work_product_index(work_products: &FxHashMap<WorkProductId, WorkProduc
 fn encode_query_cache(tcx: TyCtxt,
                       encoder: &mut Encoder)
                       -> io::Result<()> {
-    time(tcx.sess, "serialize query result cache", || {
+    trace_expr!( "serialize query result cache", {
         tcx.serialize_query_result_cache(encoder)
     })
 }

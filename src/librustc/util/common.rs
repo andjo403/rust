@@ -154,44 +154,6 @@ pub fn set_time_depth(depth: usize) {
     TIME_DEPTH.with(|slot| slot.set(depth));
 }
 
-pub fn time<T, F>(sess: &Session, what: &str, f: F) -> T where
-    F: FnOnce() -> T,
-{
-    time_ext(sess.time_passes(), Some(sess), what, f)
-}
-
-pub fn time_ext<T, F>(do_it: bool, sess: Option<&Session>, what: &str, f: F) -> T where
-    F: FnOnce() -> T,
-{
-    if !do_it { return f(); }
-
-    let old = TIME_DEPTH.with(|slot| {
-        let r = slot.get();
-        slot.set(r + 1);
-        r
-    });
-
-    if let Some(sess) = sess {
-        if cfg!(debug_assertions) {
-            profq_msg(sess, ProfileQueriesMsg::TimeBegin(what.to_string()))
-        }
-    }
-    let start = Instant::now();
-    let rv = f();
-    let dur = start.elapsed();
-    if let Some(sess) = sess {
-        if cfg!(debug_assertions) {
-            profq_msg(sess, ProfileQueriesMsg::TimeEnd)
-        }
-    }
-
-    print_time_passes_entry_internal(what, dur);
-
-    TIME_DEPTH.with(|slot| slot.set(old));
-
-    rv
-}
-
 pub fn print_time_passes_entry(do_it: bool, what: &str, dur: Duration) {
     if !do_it {
         return

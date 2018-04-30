@@ -200,6 +200,7 @@ fn run_test(test: &str, cratename: &str, filename: &FileName, line: usize,
             should_panic: bool, no_run: bool, as_test_harness: bool,
             compile_fail: bool, mut error_codes: Vec<String>, opts: &TestOptions,
             maybe_sysroot: Option<PathBuf>, linker: Option<PathBuf>, edition: Edition) {
+    trace_scoped!("run_test", "line": line);
     // the test harness wants its own `main` & top level functions, so
     // never wrap the test in `fn main() { ... }`
     let (test, line_offset) = make_test(test, Some(cratename), as_test_harness, opts);
@@ -335,6 +336,7 @@ fn run_test(test: &str, cratename: &str, filename: &FileName, line: usize,
 
     if no_run { return }
 
+    trace_scoped!("run_test_execute", "line": line);
     // Run the code!
     //
     // We're careful to prepend the *target* dylib search path to the child's

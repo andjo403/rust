@@ -45,7 +45,6 @@ use rustc::ty::maps::Providers;
 use rustc::dep_graph::{DepNode, DepConstructor};
 use rustc::middle::cstore::{self, LinkMeta, LinkagePreference};
 use rustc::middle::exported_symbols;
-use rustc::util::common::{time, print_time_passes_entry};
 use rustc::session::config::{self, NoDebugInfo};
 use rustc::session::Session;
 use rustc_incremental;
@@ -80,7 +79,7 @@ use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::str;
 use std::sync::Arc;
-use std::time::{Instant, Duration};
+use std::time::Instant;
 use std::i32;
 use std::cmp;
 use std::sync::mpsc;
@@ -736,7 +735,7 @@ pub fn codegen_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
     // Codegen the metadata.
     let llmod_id = "metadata";
     let (metadata_llcx, metadata_llmod, metadata) =
-        time(tcx.sess, "write metadata", || {
+        trace_expr!( "write metadata", {
             write_metadata(tcx, llmod_id, &link_meta)
         });
 
@@ -814,7 +813,7 @@ pub fn codegen_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                 llcx,
                 tm: create_target_machine(tcx.sess, false),
             };
-            time(tcx.sess, "write allocator module", || {
+            trace_expr!( "write allocator module", {
                 allocator::codegen(tcx, &modules, kind)
             });
 
@@ -843,7 +842,6 @@ pub fn codegen_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
         codegen_units
     };
 
-    let mut total_codegen_time = Duration::new(0, 0);
     let mut all_stats = Stats::default();
 
     for cgu in codegen_units.into_iter() {
@@ -899,19 +897,12 @@ pub fn codegen_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                              write::CODEGEN_WORK_PACKAGE_KIND,
                              &format!("codegen {}", cgu.name()))
         });
-        let start_time = Instant::now();
-        all_stats.extend(tcx.compile_codegen_unit(*cgu.name()));
-        total_codegen_time += start_time.elapsed();
+        trace_expr!( "codegen", 
+            all_stats.extend(tcx.compile_codegen_unit(*cgu.name())),"cgu_name":&format!("codegen {}", cgu.name()));
         ongoing_codegen.check_for_errors(tcx.sess);
     }
 
     ongoing_codegen.codegen_finished(tcx);
-
-    // Since the main thread is sometimes blocked during codegen, we keep track
-    // -Ztime-passes output manually.
-    print_time_passes_entry(tcx.sess.time_passes(),
-                            "codegen to LLVM IR",
-                            total_codegen_time);
 
     if tcx.sess.opts.incremental.is_some() {
         ::rustc_incremental::assert_module_sources::assert_module_sources(tcx);
@@ -948,13 +939,11 @@ pub fn codegen_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
 }
 
 fn assert_and_save_dep_graph<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
-    time(tcx.sess,
-         "assert dep graph",
-         || rustc_incremental::assert_dep_graph(tcx));
+    trace_expr!( "assert dep graph",
+         rustc_incremental::assert_dep_graph(tcx));
 
-    time(tcx.sess,
-         "serialize dep graph",
-         || rustc_incremental::save_dep_graph(tcx));
+    trace_expr!( "serialize dep graph",
+         rustc_incremental::save_dep_graph(tcx));
 }
 
 fn collect_and_partition_mono_items<'a, 'tcx>(
@@ -991,7 +980,7 @@ fn collect_and_partition_mono_items<'a, 'tcx>(
     };
 
     let (items, inlining_map) =
-        time(tcx.sess, "monomorphization collection", || {
+        trace_expr!( "monomorphization collection", {
             collector::collect_crate_mono_items(tcx, collection_mode)
     });
 
@@ -1005,7 +994,7 @@ fn collect_and_partition_mono_items<'a, 'tcx>(
         PartitioningStrategy::FixedUnitCount(tcx.sess.codegen_units())
     };
 
-    let codegen_units = time(tcx.sess, "codegen unit partitioning", || {
+    let codegen_units = trace_expr!( "codegen unit partitioning", {
         partitioning::partition(tcx,
                                 items.iter().cloned(),
                                 strategy,

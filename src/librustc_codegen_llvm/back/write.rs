@@ -32,7 +32,7 @@ use {CodegenResults, ModuleSource, ModuleCodegen, CompiledModule, ModuleKind};
 use CrateInfo;
 use rustc::hir::def_id::{CrateNum, LOCAL_CRATE};
 use rustc::ty::TyCtxt;
-use rustc::util::common::{time_ext, time_depth, set_time_depth, print_time_passes_entry};
+use rustc::util::common::{time_depth, set_time_depth};
 use rustc::util::common::path2cstr;
 use rustc::util::fs::{link_or_copy};
 use errors::{self, Handler, Level, DiagnosticBuilder, FatalError, DiagnosticId};
@@ -57,7 +57,6 @@ use std::str;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::slice;
-use std::time::Instant;
 use std::thread;
 use libc::{c_uint, c_void, c_char, size_t};
 
@@ -572,19 +571,13 @@ unsafe fn optimize(cgcx: &CodegenContext,
         diag_handler.abort_if_errors();
 
         // Finally, run the actual optimization passes
-        time_ext(config.time_passes,
-                 None,
-                 &format!("llvm function passes [{}]", module_name.unwrap()),
-                 || {
+        trace_expr!( "llvm function passes",
             llvm::LLVMRustRunFunctionPassManager(fpm, llmod)
-        });
+            ,"module_name":module_name.unwrap());
         timeline.record("fpm");
-        time_ext(config.time_passes,
-                 None,
-                 &format!("llvm module passes [{}]", module_name.unwrap()),
-                 || {
+        trace_expr!( "llvm module passes",
             llvm::LLVMRunPassManager(mpm, llmod)
-        });
+            ,"module_name":module_name.unwrap());
 
         // Deallocate managers that we're now done with
         llvm::LLVMDisposePassManager(fpm);
@@ -706,8 +699,8 @@ unsafe fn codegen(cgcx: &CodegenContext,
         embed_bitcode(cgcx, llcx, llmod, None);
     }
 
-    time_ext(config.time_passes, None, &format!("codegen passes [{}]", module_name.unwrap()),
-         || -> Result<(), FatalError> {
+    trace_expr!( "codegen passes" ,
+        {
         if config.emit_ir {
             let out = cgcx.output_filenames.temp_path(OutputType::LlvmAssembly, module_name);
             let out = path2cstr(&out);
@@ -786,9 +779,7 @@ unsafe fn codegen(cgcx: &CodegenContext,
                 drop(fs::remove_file(&assembly));
             }
         }
-
-        Ok(())
-    })?;
+    }, "module_name": module_name.unwrap());
 
     if copy_bc_to_obj {
         debug!("copying bitcode {:?} to obj {:?}", bc_out, obj_out);
@@ -1683,7 +1674,7 @@ fn start_executing_work(tcx: TyCtxt,
         let mut main_thread_worker_state = MainThreadWorkerState::Idle;
         let mut running = 0;
 
-        let mut llvm_start_time = None;
+        let mut llvm_start_time = false;
 
         // Run the message loop while there's still anything that needs message
         // processing:
@@ -1714,8 +1705,7 @@ fn start_executing_work(tcx: TyCtxt,
                             worker: get_worker_id(&mut free_worker_ids),
                             .. cgcx.clone()
                         };
-                        maybe_start_llvm_timer(cgcx.config(item.kind()),
-                                               &mut llvm_start_time);
+                        maybe_start_llvm_timer(cgcx.config(item.kind()), &mut llvm_start_time);
                         main_thread_worker_state = MainThreadWorkerState::LLVMing;
                         spawn_work(cgcx, item);
                     }
@@ -1754,8 +1744,7 @@ fn start_executing_work(tcx: TyCtxt,
                                 worker: get_worker_id(&mut free_worker_ids),
                                 .. cgcx.clone()
                             };
-                            maybe_start_llvm_timer(cgcx.config(item.kind()),
-                                                   &mut llvm_start_time);
+                            maybe_start_llvm_timer(cgcx.config(item.kind()), &mut llvm_start_time);
                             main_thread_worker_state = MainThreadWorkerState::LLVMing;
                             spawn_work(cgcx, item);
                         } else {
@@ -1785,8 +1774,7 @@ fn start_executing_work(tcx: TyCtxt,
             while work_items.len() > 0 && running < tokens.len() {
                 let (item, _) = work_items.pop().unwrap();
 
-                maybe_start_llvm_timer(cgcx.config(item.kind()),
-                                       &mut llvm_start_time);
+                maybe_start_llvm_timer(cgcx.config(item.kind()), &mut llvm_start_time);
 
                 let cgcx = CodegenContext {
                     worker: get_worker_id(&mut free_worker_ids),
@@ -1912,15 +1900,7 @@ fn start_executing_work(tcx: TyCtxt,
             }
         }
 
-        if let Some(llvm_start_time) = llvm_start_time {
-            let total_llvm_time = Instant::now().duration_since(llvm_start_time);
-            // This is the top-level timing for all of LLVM, set the time-depth
-            // to zero.
-            set_time_depth(0);
-            print_time_passes_entry(cgcx.time_passes,
-                                    "LLVM passes",
-                                    total_llvm_time);
-        }
+        trace_end!( "LLVM passes");
 
         // Regardless of what order these modules completed in, report them to
         // the backend in the same order every time to ensure that we're handing
@@ -1947,15 +1927,13 @@ fn start_executing_work(tcx: TyCtxt,
         items_in_queue >= max_workers.saturating_sub(workers_running / 2)
     }
 
-    fn maybe_start_llvm_timer(config: &ModuleConfig,
-                              llvm_start_time: &mut Option<Instant>) {
+    fn maybe_start_llvm_timer(_config: &ModuleConfig, llvm_start_time: &mut bool) {
         // We keep track of the -Ztime-passes output manually,
         // since the closure-based interface does not fit well here.
-        if config.time_passes {
-            if llvm_start_time.is_none() {
-                *llvm_start_time = Some(Instant::now());
+            if !*llvm_start_time {
+                trace_begin!( "LLVM passes");
+                *llvm_start_time = true;
             }
-        }
     }
 }
 

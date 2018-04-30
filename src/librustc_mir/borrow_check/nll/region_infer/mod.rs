@@ -24,7 +24,7 @@ use rustc::mir::{
 };
 use rustc::traits::ObligationCause;
 use rustc::ty::{self, RegionVid, Ty, TypeFoldable};
-use rustc::util::common::{self, ErrorReported};
+use rustc::util::common::ErrorReported;
 use rustc_data_structures::bitvec::BitVector;
 use rustc_data_structures::indexed_vec::{Idx, IndexVec};
 use std::fmt;
@@ -410,10 +410,9 @@ impl<'tcx> RegionInferenceContext<'tcx> {
         mir: &Mir<'tcx>,
         mir_def_id: DefId,
     ) -> Option<ClosureRegionRequirements<'gcx>> {
-        common::time(
-            infcx.tcx.sess,
-            &format!("solve_nll_region_constraints({:?})", mir_def_id),
-            || self.solve_inner(infcx, mir, mir_def_id),
+        trace_expr!( "solve_nll_region_constraints",
+            self.solve_inner(infcx, mir, mir_def_id),
+            "mir_def_id" : &format!("{:?}", mir_def_id)
         )
     }
 

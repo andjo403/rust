@@ -53,6 +53,8 @@ extern crate rustc_target;
 extern crate log_settings;
 extern crate rustc_apfloat;
 extern crate byteorder;
+#[macro_use]
+extern crate rs_tracing;
 
 mod diagnostics;
 

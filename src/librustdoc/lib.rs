@@ -50,6 +50,8 @@ extern crate tempdir;
 extern crate minifier;
 
 extern crate serialize as rustc_serialize; // used by deriving
+#[macro_use]
+extern crate rs_tracing;
 
 use errors::ColorConfig;
 
@@ -105,11 +107,14 @@ pub fn main() {
     const STACK_SIZE: usize = 32_000_000; // 32MB
     rustc_driver::set_sigpipe_handler();
     env_logger::init();
+    open_trace_file!("C:\\Users\\andjo\\RustProj\\tracelog");
+    trace_activate!();
     let res = std::thread::Builder::new().stack_size(STACK_SIZE).spawn(move || {
         syntax::with_globals(move || {
             get_args().map(|args| main_args(&args)).unwrap_or(1)
         })
     }).unwrap().join().unwrap_or(101);
+    close_trace_file!();
     process::exit(res as i32);
 }
 
