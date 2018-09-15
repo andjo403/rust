@@ -90,6 +90,15 @@
 # with clang-cl, so this is special in that it only compiles LLVM with clang-cl
 #clang-cl = '/path/to/clang-cl.exe'
 
+# Build LLVM and tools with profile guided optimization (PGO) instrumentation
+# only works when compiling with clang
+#instrumented = false
+
+# Build LLVM and tools with profile guided optimization (PGO) data generated
+# from "llvm-profdata merge" with result from PGO instrumentation
+# only works when compiling with clang
+#pgo = '/path/to/pgo-file'
+
 # =============================================================================
 # General build configuration options
 # =============================================================================

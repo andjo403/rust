@@ -247,6 +247,13 @@ impl Step for Llvm {
         if let Some(ref python) = builder.config.python {
             cfg.define("PYTHON_EXECUTABLE", python);
         }
+        if builder.config.llvm_instrumented {
+            cfg.define("LLVM_BUILD_INSTRUMENTED", "On")
+            .define("LLVM_ENABLE_IR_PGO", "On");
+        }
+        if let Some(ref pgo_file) = builder.config.llvm_pgo {
+            cfg.define("LLVM_PROFDATA_FILE", pgo_file);
+        };
 
         configure_cmake(builder, target, &mut cfg, false);
 
