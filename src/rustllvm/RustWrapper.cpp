@@ -9,6 +9,7 @@
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/Support/Signals.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/ADT/Optional.h"
 
 #include <iostream>
@@ -1563,4 +1564,14 @@ LLVMRustBuildMinNum(LLVMBuilderRef B, LLVMValueRef LHS, LLVMValueRef RHS) {
 extern "C" LLVMValueRef
 LLVMRustBuildMaxNum(LLVMBuilderRef B, LLVMValueRef LHS, LLVMValueRef RHS) {
     return wrap(unwrap(B)->CreateMaxNum(unwrap(LHS),unwrap(RHS)));
+}
+
+extern "C" void LLVMRusttimeTraceProfilerInitializeCallback(
+  timeTraceProfilerBeginCallback BeginCallbackTemp,
+  timeTraceProfilerEndCallback EndCallbackTemp) {
+  timeTraceProfilerInitializeCallback(BeginCallbackTemp,EndCallbackTemp);
+}
+
+extern "C" void LLVMRusttimeTraceProfilerCleanup() {
+  timeTraceProfilerCleanup();
 }

@@ -41,6 +41,9 @@ use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::Instant;
 use std::thread;
+use std::ffi::CStr;
+use std::os::raw::c_char;
+use std::cell::RefCell;
 
 const PRE_LTO_BC_EXT: &str = "pre-lto.bc";
 
@@ -994,6 +997,47 @@ enum MainThreadWorkerState {
     LLVMing,
 }
 
+
+thread_local!(static SELF_PROFILER_STACK: RefCell<Vec<String>> = RefCell::new(vec![]));
+static mut SELF_PROFILER: Option<Arc<SelfProfiler>> = None;
+
+extern "C" {
+    pub fn LLVMRusttimeTraceProfilerInitializeCallback(
+      begin_callback: extern fn(*const c_char,*const c_char),
+      end_callback: extern fn());
+    pub fn LLVMRusttimeTraceProfilerCleanup();
+}
+
+extern fn begin_callback(name:*const c_char, detail:*const c_char) {
+    unsafe{
+        if let Some(profiler) = &SELF_PROFILER {
+            SELF_PROFILER_STACK.with(|f| {
+                let name = CStr::from_ptr(name).to_str().unwrap();
+                let detail = CStr::from_ptr(detail).to_str().unwrap();
+                let msg = format!("{}: {}", name, detail);
+                f.borrow_mut().push(msg.clone());
+                // need to filter out some events due to event file gets larger then 1 GB for large crates
+                if msg.starts_with("OptFunction"){
+                    profiler.start_activity(msg);
+                }
+            });
+        }
+    }
+}
+extern fn end_callback() {
+    unsafe{
+        if let Some(profiler) = &SELF_PROFILER {
+            SELF_PROFILER_STACK.with(|f| {
+                let msg = f.borrow_mut().pop().unwrap();
+                // need to filter out some events due to event file gets larger then 1 GB for large crates
+                if msg.starts_with("OptFunction"){
+                    profiler.end_activity(msg);
+                }
+            });
+        }
+    }
+}
+
 fn start_executing_work<B: ExtraBackendMethods>(
     backend: B,
     tcx: TyCtxt<'_>,
@@ -1248,6 +1292,13 @@ fn start_executing_work<B: ExtraBackendMethods>(
     return thread::spawn(move || {
         // We pretend to be within the top-level LLVM time-passes task here:
         set_time_depth(1);
+
+        if cgcx.profiler.is_some() {
+            unsafe{
+            SELF_PROFILER = cgcx.profiler.clone();
+            LLVMRusttimeTraceProfilerInitializeCallback(begin_callback, end_callback);
+            }
+        }
 
         let max_workers = ::num_cpus::get();
         let mut worker_id_counter = 0;
@@ -1559,6 +1610,13 @@ fn start_executing_work<B: ExtraBackendMethods>(
             print_time_passes_entry(cgcx.time_passes,
                                     "LLVM passes",
                                     total_llvm_time);
+        }
+
+        if cgcx.profiler.is_some() {
+            unsafe{
+                LLVMRusttimeTraceProfilerCleanup();
+                SELF_PROFILER = None;
+            }
         }
 
         // Regardless of what order these modules completed in, report them to
