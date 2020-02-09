@@ -136,15 +136,22 @@ where
 {
     let _prof_timer = tcx.prof.generic_activity("cgu_partitioning");
 
+    let mut estimator = SizeEstimator::new();
+
     // In the first step, we place all regular monomorphizations into their
     // respective 'home' codegen unit. Regular monomorphizations are all
     // functions and statics defined in the local crate.
     let initial_partitioning = {
         let _prof_timer = tcx.prof.generic_activity("cgu_partitioning_place_roots");
-        place_root_mono_items(tcx, mono_items)
+        place_root_mono_items(tcx, mono_items, &mut estimator)
     };
 
-    debug_dump(tcx, "INITIAL PARTITIONING:", initial_partitioning.codegen_units.iter());
+    debug_dump(
+        tcx,
+        "INITIAL PARTITIONING:",
+        initial_partitioning.codegen_units.iter(),
+        &mut estimator,
+    );
 
     // In the next step, we use the inlining map to determine which additional
     // monomorphizations have to go into each codegen unit. These additional
@@ -152,19 +159,17 @@ where
     // local functions the definition of which is marked with `#[inline]`.
     let mut post_inlining = {
         let _prof_timer = tcx.prof.generic_activity("cgu_partitioning_place_inline_items");
-        place_inlined_mono_items(initial_partitioning, inlining_map)
+        place_inlined_mono_items(tcx, initial_partitioning, inlining_map, &mut estimator)
     };
 
-    post_inlining.codegen_units.iter_mut().for_each(|cgu| cgu.estimate_size(tcx));
-
-    debug_dump(tcx, "POST INLINING:", post_inlining.codegen_units.iter());
+    debug_dump(tcx, "POST INLINING:", post_inlining.codegen_units.iter(), &mut estimator);
 
     // If the partitioning should produce a fixed count of codegen units, merge
     // until that count is reached.
     if let PartitioningStrategy::FixedUnitCount(count) = strategy {
         let _prof_timer = tcx.prof.generic_activity("cgu_partitioning_merge_cgus");
-        merge_codegen_units(tcx, &mut post_inlining, count);
-        debug_dump(tcx, "POST MERGING:", post_inlining.codegen_units.iter());
+        merge_codegen_units(tcx, &mut post_inlining, count, &mut estimator);
+        debug_dump(tcx, "POST MERGING:", post_inlining.codegen_units.iter(), &mut estimator);
     }
 
     // Next we try to make as many symbols "internal" as possible, so LLVM has
@@ -181,6 +186,27 @@ where
     result.sort_by_cached_key(|cgu| cgu.name().as_str());
 
     result
+}
+
+struct SizeEstimator<'tcx> {
+    cache: FxHashMap<MonoItem<'tcx>, usize>,
+}
+impl<'tcx> SizeEstimator<'tcx> {
+    pub fn new() -> SizeEstimator<'tcx> {
+        SizeEstimator { cache: Default::default() }
+    }
+    pub fn size_estimate(&mut self, tcx: TyCtxt<'tcx>, mono_item: MonoItem<'tcx>) -> usize {
+        *self.cache.entry(mono_item).or_insert_with(|| match mono_item {
+            MonoItem::Fn(instance) => {
+                // Estimate the size of a function based on how many statements
+                // it contains.
+                tcx.instance_def_size_estimate(instance.def)
+            }
+            // Conservatively estimate the size of a static declaration
+            // or assembly to be 1.
+            MonoItem::Static(_) | MonoItem::GlobalAsm(_) => 1,
+        })
+    }
 }
 
 struct PreInliningPartitioning<'tcx> {
@@ -203,7 +229,11 @@ struct PostInliningPartitioning<'tcx> {
     internalization_candidates: FxHashSet<MonoItem<'tcx>>,
 }
 
-fn place_root_mono_items<'tcx, I>(tcx: TyCtxt<'tcx>, mono_items: I) -> PreInliningPartitioning<'tcx>
+fn place_root_mono_items<'tcx, I>(
+    tcx: TyCtxt<'tcx>,
+    mono_items: I,
+    estimator: &mut SizeEstimator<'tcx>,
+) -> PreInliningPartitioning<'tcx>
 where
     I: Iterator<Item = MonoItem<'tcx>>,
 {
@@ -255,8 +285,8 @@ where
         if visibility == Visibility::Hidden && can_be_internalized {
             internalization_candidates.insert(mono_item);
         }
-
-        codegen_unit.items_mut().insert(mono_item, (linkage, visibility));
+        let item_size = estimator.size_estimate(tcx, mono_item);
+        codegen_unit.add_item(mono_item, (linkage, visibility), item_size);
         roots.insert(mono_item);
     }
 
@@ -459,6 +489,7 @@ fn merge_codegen_units<'tcx>(
     tcx: TyCtxt<'tcx>,
     partitioning: &mut PostInliningPartitioning<'tcx>,
     target_cgu_count: usize,
+    estimator: &mut SizeEstimator<'tcx>,
 ) {
     assert!(target_cgu_count >= 1);
     let codegen_units = &mut partitioning.codegen_units;
@@ -481,10 +512,10 @@ fn merge_codegen_units<'tcx>(
         let mut smallest = codegen_units.pop().unwrap();
         let second_smallest = codegen_units.last_mut().unwrap();
 
-        for (k, v) in smallest.items_mut().drain() {
-            second_smallest.items_mut().insert(k, v);
+        for (mono_item, v) in smallest.items_mut().drain() {
+            let item_size = estimator.size_estimate(tcx, mono_item);
+            second_smallest.add_item(mono_item, v, item_size);
         }
-        second_smallest.estimate_size(tcx);
         debug!(
             "CodegenUnit {} merged in to CodegenUnit {}",
             smallest.name(),
@@ -499,8 +530,10 @@ fn merge_codegen_units<'tcx>(
 }
 
 fn place_inlined_mono_items<'tcx>(
+    tcx: TyCtxt<'tcx>,
     initial_partitioning: PreInliningPartitioning<'tcx>,
     inlining_map: &InliningMap<'tcx>,
+    estimator: &mut SizeEstimator<'tcx>,
 ) -> PostInliningPartitioning<'tcx> {
     let mut new_partitioning = Vec::new();
 
@@ -520,7 +553,8 @@ fn place_inlined_mono_items<'tcx>(
         for mono_item in reachable {
             if let Some(linkage) = old_codegen_unit.items().get(&mono_item) {
                 // This is a root, just copy it over.
-                new_codegen_unit.items_mut().insert(mono_item, *linkage);
+                let item_size = estimator.size_estimate(tcx, mono_item);
+                new_codegen_unit.add_item(mono_item, *linkage, item_size);
             } else {
                 if roots.contains(&mono_item) {
                     bug!(
@@ -531,9 +565,12 @@ fn place_inlined_mono_items<'tcx>(
                 }
 
                 // This is a CGU-private copy.
-                new_codegen_unit
-                    .items_mut()
-                    .insert(mono_item, (Linkage::Internal, Visibility::Default));
+                let item_size = estimator.size_estimate(tcx, mono_item);
+                new_codegen_unit.add_item(
+                    mono_item,
+                    (Linkage::Internal, Visibility::Default),
+                    item_size,
+                );
             }
         }
 
@@ -741,8 +778,12 @@ fn numbered_codegen_unit_name(
     name_builder.build_cgu_name_no_mangle(LOCAL_CRATE, &["cgu"], Some(index))
 }
 
-fn debug_dump<'a, 'tcx, I>(tcx: TyCtxt<'tcx>, label: &str, cgus: I)
-where
+fn debug_dump<'a, 'tcx, I>(
+    tcx: TyCtxt<'tcx>,
+    label: &str,
+    cgus: I,
+    estimator: &mut SizeEstimator<'tcx>,
+) where
     I: Iterator<Item = &'a CodegenUnit<'tcx>>,
     'tcx: 'a,
 {
@@ -762,7 +803,7 @@ where
                     mono_item.to_string(tcx, true),
                     linkage,
                     symbol_hash,
-                    mono_item.size_estimate(tcx)
+                    estimator.size_estimate(tcx, *mono_item)
                 );
             }
 
